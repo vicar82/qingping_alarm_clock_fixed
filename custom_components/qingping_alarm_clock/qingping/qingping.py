@@ -18,7 +18,8 @@ from .exceptions import NotConnectedError
 from ..const import (
     ALARM_SLOTS_COUNT,
     DISCONNECT_DELAY,
-    CONNECTION_TIMEOUT
+    CONNECTION_TIMEOUT,
+    RETRY_INTERVAL
 )
 from .events import (
     DEVICE_CONNECT,
@@ -60,6 +61,10 @@ class Qingping:
                 return True
 
             device = async_ble_device_from_address(self.hass, self.mac, connectable=True)
+            if device is None:
+                _LOGGER.error(f"No adapters can reach the device with address {self.mac}")
+                return False
+
             self.client = BleakClient(device, disconnected_callback=self._on_disconnect)
 
             _LOGGER.debug(f"Connecting to {self.mac}...")
@@ -262,11 +267,18 @@ class Qingping:
     async def _ensure_connected(self):
         async def wait_for_connected():
             while not self.client or not self.client.is_connected:
-                await self.connect()
+                success = await self.connect()
+                if success:
+                    _LOGGER.info("Successfully connected to the Bluetooth device.")
+                    return
+                else:
+                    _LOGGER.error("Failed to connect. Retrying in %s seconds...", RETRY_INTERVAL)
+                    await asyncio.sleep(RETRY_INTERVAL)
 
         try:
             await asyncio.wait_for(wait_for_connected(), CONNECTION_TIMEOUT)
         except asyncio.TimeoutError:
+            _LOGGER.error("Connection timeout.")
             raise NotConnectedError("Connection timeout")
 
     async def _ensure_configuration(self):
