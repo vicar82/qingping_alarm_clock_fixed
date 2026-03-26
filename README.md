@@ -66,7 +66,7 @@ data:
 ### Installation via HACS
 
 1. Ensure you have [HACS](https://hacs.xyz) installed.
-2. Add this repository to HACS: Go to **HACS** > **Integrations** > **Custom repositories** > **Add** and enter the repository URL.
+2. Add this repository to HACS: Go to **HACS** > **Integrations** > **Custom repositories** > **Add** using the repository URL `https://github.com/ov1d1u/qingping_alarm_clock` and Integration as type.
 3. Search for "Qingping Alarm Clock" in HACS and install it.
 4. Restart Home Assistant.
 5. Configure the integration via the Home Assistant UI by navigating to **Configuration** > **Integrations** > **Add Integration** and searching for "Qingping Alarm Clock".
