@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import math
 import time
 from datetime import time as dtime
 
@@ -63,8 +62,7 @@ class Qingping:
         self._connect_lock = asyncio.Lock()
         self._configuration_event = asyncio.Event()
         self._alarms_event = asyncio.Event()
-        self._alarm_chunks_received = 0
-        self._expected_alarm_chunks = math.ceil(ALARM_SLOTS_COUNT / 3)
+        self._highest_alarm_index_seen = -1
         self._disconnect_task = None
 
     async def connect(self) -> bool:
@@ -99,9 +97,11 @@ class Qingping:
             try:
                 # Step 1 auth
                 await self._write_gatt_char(MAIN_CHAR, AUTH_STEP_1)
+                await asyncio.sleep(0.2)
 
                 # Step 2 auth
                 await self._write_gatt_char(MAIN_CHAR, AUTH_STEP_2)
+                await asyncio.sleep(0.5)
 
                 self.eventbus.send(DEVICE_CONNECT, self)
 
@@ -110,9 +110,17 @@ class Qingping:
                 await self.client.start_notify(CFG_READ_CHAR, self._notification_handler)
                 await self.get_configuration()
 
-                # Read alarms
+                # Read alarms (non-fatal if the device does not return them)
                 _LOGGER.debug("Reading alarms...")
-                await self.get_alarms()
+                try:
+                    await self.get_alarms()
+                except NotConnectedError as exc:
+                    _LOGGER.warning(
+                        "Could not read alarms from %s: %s. "
+                        "You can still use the device, but alarm management may be limited.",
+                        self.mac, exc
+                    )
+                    self.alarms = []
             except Exception as exc:
                 _LOGGER.exception("Failed to initialize %s after connection: %s", self.mac, exc)
                 await self.disconnect()
@@ -190,7 +198,7 @@ class Qingping:
             raise NotConnectedError("Not connected")
 
         self.alarms = []
-        self._alarm_chunks_received = 0
+        self._highest_alarm_index_seen = -1
         self._alarms_event.clear()
         await self._write_config(b"\x01\x06")
         try:
@@ -211,16 +219,22 @@ class Qingping:
 
         if 0 <= slot < ALARM_SLOTS_COUNT:
             alarm: Alarm = self.alarms[slot]
-            if is_enabled is not None:
-                alarm.is_enabled = is_enabled
-            if time is not None:
-                alarm.time = time
-            if days is not None:
-                alarm.days = days
-            if snooze is not None:
-                alarm.snooze = snooze
             if not alarm.is_configured:
-                raise ServiceValidationError("Alarm not configured.")
+                if time is None:
+                    raise ServiceValidationError("Alarm time is required for a new alarm.")
+                alarm.time = time
+                alarm.days = days if days is not None else set()
+                alarm.is_enabled = is_enabled if is_enabled is not None else True
+                alarm.snooze = snooze if snooze is not None else True
+            else:
+                if is_enabled is not None:
+                    alarm.is_enabled = is_enabled
+                if time is not None:
+                    alarm.time = time
+                if days is not None:
+                    alarm.days = days
+                if snooze is not None:
+                    alarm.snooze = snooze
 
             await self._write_config(alarm.to_bytes())
             await self.get_alarms()
@@ -318,9 +332,21 @@ class Qingping:
             await self.get_configuration()
 
     async def _ensure_alarms(self):
-        if not self.alarms:
-            await self._ensure_connected()
+        if self.alarms:
+            return
+
+        await self._ensure_connected()
+        try:
             await self.get_alarms()
+        except NotConnectedError:
+            _LOGGER.warning(
+                "Failed to read alarms from %s; creating empty alarm placeholders.",
+                self.mac
+            )
+            self.alarms = [
+                Alarm(slot, bytes.fromhex("ffffffffff"))
+                for slot in range(ALARM_SLOTS_COUNT)
+            ]
 
     async def _write_config(self, data: bytes):
         if not self.client or not self.client.is_connected:
@@ -355,25 +381,28 @@ class Qingping:
     async def _notification_handler(self, sender, data):
         if sender.uuid.lower() == CFG_READ_CHAR.lower():
             _LOGGER.debug("<< %s: %s", sender.uuid, data.hex())
-            if data.startswith(b"\x13\x02"):
+            if data[0] == 0x13 and data[1] in (0x01, 0x02):
                 _LOGGER.debug("Got configuration bytes: %s", data.hex())
                 self.configuration = Configuration(data)
 
                 self._configuration_event.set()
                 self.eventbus.send(DEVICE_CONFIG_UPDATE, self.configuration)
-            elif data.startswith(b"\x11\x06") and len(data) == 18:
+            elif data.startswith(b"\x11\x06") and len(data) >= 8:
                 _LOGGER.debug("Got alarms bytes: %s", data.hex())
                 slot_offset = data[2]
                 if slot_offset == 0:
                     self.alarms = []
-                    self._alarm_chunks_received = 0
+                    self._highest_alarm_index_seen = -1
 
-                self._alarm_chunks_received += 1
-                self.alarms.append(Alarm(slot_offset, data[3:8]))
-                self.alarms.append(Alarm(slot_offset + 1, data[8:13]))
-                self.alarms.append(Alarm(slot_offset + 2, data[13:18]))
+                offset = 3
+                current_index = slot_offset
+                while offset + 5 <= len(data):
+                    self.alarms.append(Alarm(current_index, data[offset:offset + 5]))
+                    self._highest_alarm_index_seen = current_index
+                    offset += 5
+                    current_index += 1
 
-                if slot_offset + 3 >= ALARM_SLOTS_COUNT:
+                if self._highest_alarm_index_seen >= ALARM_SLOTS_COUNT - 1:
                     self._alarms_event.set()
                     self.eventbus.send(ALARMS_UPDATE, self.alarms)
 

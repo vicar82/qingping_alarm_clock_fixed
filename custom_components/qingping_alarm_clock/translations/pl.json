@@ -89,7 +89,7 @@
         },
         "slot": {
           "name": "Slot",
-          "description": "Numer slotu alarmu (0-18)."
+          "description": "Numer slotu alarmu (0-15)."
         },
         "time": {
           "name": "Godzina",
@@ -119,7 +119,7 @@
         },
         "slot": {
           "name": "Slot",
-          "description": "Numer slotu alarmu (0-18)."
+          "description": "Numer slotu alarmu (0-15)."
         }
       }
     },

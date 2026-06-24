@@ -1,7 +1,7 @@
 """Constants for the Qingping CGD1 Alarm Clock integration."""
 DOMAIN = "qingping_alarm_clock"
 
-ALARM_SLOTS_COUNT = 19
+ALARM_SLOTS_COUNT = 16
 CONF_ALARM_SLOT = "slot"
 CONF_ALARM_TIME = "time"
 CONF_ALARM_DAYS = "days"

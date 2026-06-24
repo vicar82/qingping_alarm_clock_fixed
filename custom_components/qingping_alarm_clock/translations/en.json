@@ -89,7 +89,7 @@
         },
         "slot": {
           "name": "Slot",
-          "description": "Alarm slot number (0-18)."
+          "description": "Alarm slot number (0-15)."
         },
         "time": {
           "name": "Time",
@@ -119,7 +119,7 @@
         },
         "slot": {
           "name": "Slot",
-          "description": "Alarm slot number (0-18)."
+          "description": "Alarm slot number (0-15)."
         }
       }
     },
