@@ -1,21 +1,175 @@
 {
-    "config": {
-        "abort": {
-            "already_configured": "Device is already configured"
-        },
-        "error": {
-            "cannot_connect": "Failed to connect",
-            "invalid_auth": "Invalid authentication",
-            "unknown": "Unexpected error"
-        },
-        "step": {
-            "user": {
-                "data": {
-                    "host": "Host",
-                    "password": "Password",
-                    "username": "Username"
-                }
-            }
+  "title": "Qingping Cleargrass CGD1 Alarm Clock",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Select device",
+        "description": "Please select a Qingping CGD1 alarm clock to configure",
+        "data": {
+          "mac": "Device"
         }
+      },
+      "manual_mac": {
+        "title": "Enter MAC address",
+        "data": {
+          "mac": "MAC address"
+        }
+      },
+      "name": {
+        "title": "Name the device",
+        "data": {
+          "name": "Name"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the alarm clock. Make sure it is in range and not connected to another device.",
+      "unknown": "Unexpected error"
+    },
+    "abort": {
+      "already_configured": "Device is already configured"
     }
+  },
+  "entity": {
+    "number": {
+      "daytime_brightness": {
+        "name": "Day Brightness"
+      },
+      "nighttime_brightness": {
+        "name": "Night Brightness"
+      },
+      "screen_light_time": {
+        "name": "Backlight Timeout"
+      },
+      "volume": {
+        "name": "Volume"
+      }
+    },
+    "select": {
+      "language": {
+        "name": "Language"
+      },
+      "temperature_unit": {
+        "name": "Temperature Unit"
+      },
+      "time_format": {
+        "name": "Time Format"
+      }
+    },
+    "switch": {
+      "alarms_enabled": {
+        "name": "Alarms"
+      },
+      "night_mode_enabled": {
+        "name": "Night Mode"
+      }
+    },
+    "time": {
+      "night_end_time": {
+        "name": "Night Mode To"
+      },
+      "night_start_time": {
+        "name": "Night Mode From"
+      }
+    },
+    "binary_sensor": {
+      "connected": {
+        "name": "Connected"
+      }
+    }
+  },
+  "services": {
+    "set_alarm": {
+      "name": "Set alarm",
+      "description": "Configure an alarm on the Qingping alarm clock.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "The Qingping alarm clock to configure."
+        },
+        "slot": {
+          "name": "Slot",
+          "description": "Alarm slot number (0-18)."
+        },
+        "time": {
+          "name": "Time",
+          "description": "Alarm time."
+        },
+        "days": {
+          "name": "Days",
+          "description": "Comma-separated list of weekdays (mon,tue,wed,thu,fri,sat,sun)."
+        },
+        "enabled": {
+          "name": "Enabled",
+          "description": "Enable or disable the alarm."
+        },
+        "snooze": {
+          "name": "Snooze",
+          "description": "Enable or disable snooze for the alarm."
+        }
+      }
+    },
+    "delete_alarm": {
+      "name": "Delete alarm",
+      "description": "Delete an alarm from the Qingping alarm clock.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "The Qingping alarm clock to configure."
+        },
+        "slot": {
+          "name": "Slot",
+          "description": "Alarm slot number (0-18)."
+        }
+      }
+    },
+    "get_alarms": {
+      "name": "Get alarms",
+      "description": "Fetch the list of configured alarms.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "The Qingping alarm clock to query."
+        },
+        "only_enabled": {
+          "name": "Only enabled",
+          "description": "Return only enabled alarms."
+        }
+      }
+    },
+    "set_time": {
+      "name": "Set time",
+      "description": "Set the clock time and timezone manually.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "The Qingping alarm clock to configure."
+        },
+        "time": {
+          "name": "Time",
+          "description": "Date and time to set."
+        }
+      }
+    },
+    "sync_time": {
+      "name": "Sync time",
+      "description": "Synchronize the clock with the current Home Assistant time.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "The Qingping alarm clock to configure."
+        }
+      }
+    },
+    "refresh": {
+      "name": "Refresh",
+      "description": "Manually connect to the clock and refresh all data.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "The Qingping alarm clock to refresh."
+        }
+      }
+    }
+  }
 }

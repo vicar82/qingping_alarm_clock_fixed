@@ -42,7 +42,7 @@ class Configuration:
     @sound_volume.setter
     def sound_volume(self, value):
         if value < 1 or value > 5:
-            return ValueError
+            raise ValueError("sound_volume must be between 1 and 5")
         self._sound_volume = value
 
     @property
@@ -56,7 +56,7 @@ class Configuration:
     @timezone_offset.setter
     def timezone_offset(self, value):
         if value > 720 or value < -720:
-            return ValueError
+            raise ValueError("timezone_offset must be between -720 and 720")
         self._timezone_offset = abs(value)
         self._tz_plus_flag = value >= 0
 
@@ -67,7 +67,7 @@ class Configuration:
     @screen_light_time.setter
     def screen_light_time(self, value):
         if value < 1 or value > 30:
-            return ValueError
+            raise ValueError("screen_light_time must be between 1 and 30")
         self._screen_light_time = value
 
     @property
@@ -77,7 +77,7 @@ class Configuration:
     @daytime_brightness.setter
     def daytime_brightness(self, value):
         if value < 1 or value > 100:
-            return ValueError
+            raise ValueError("daytime_brightness must be between 1 and 100")
         self._daytime_brightness = value
 
     @property
@@ -87,7 +87,7 @@ class Configuration:
     @nighttime_brightness.setter
     def nighttime_brightness(self, value):
         if value < 1 or value > 100:
-            return ValueError
+            raise ValueError("nighttime_brightness must be between 1 and 100")
         self._nighttime_brightness = value
 
     @property
@@ -97,7 +97,7 @@ class Configuration:
     @night_time_start_hour.setter
     def night_time_start_hour(self, value):
         if value < 0 or value > 23:
-            return ValueError
+            raise ValueError("hour must be between 0 and 23")
         self._night_time_start_hour = value
 
     @property
@@ -107,7 +107,7 @@ class Configuration:
     @night_time_start_minute.setter
     def night_time_start_minute(self, value):
         if value < 0 or value > 59:
-            return ValueError
+            raise ValueError("minute must be between 0 and 59")
         self._night_time_start_minute = value
 
     @property
@@ -117,7 +117,7 @@ class Configuration:
     @night_time_end_hour.setter
     def night_time_end_hour(self, value):
         if value < 0 or value > 23:
-            return ValueError
+            raise ValueError("hour must be between 0 and 23")
         self._night_time_end_hour = value
 
     @property
@@ -127,7 +127,7 @@ class Configuration:
     @night_time_end_minute.setter
     def night_time_end_minute(self, value):
         if value < 0 or value > 59:
-            return ValueError
+            raise ValueError("minute must be between 0 and 59")
         self._night_time_end_minute = value
 
     @property

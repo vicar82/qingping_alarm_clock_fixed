@@ -19,10 +19,12 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
 
 
 class NighttimeStart(TimeEntity):
+    _attr_has_entity_name = True
+    _attr_translation_key = "night_start_time"
+
     def __init__(self, instance, config_entry):
         self._instance: Qingping = instance
         self._config_entry = config_entry
-        self._attr_name = f"{config_entry.data[CONF_NAME]} Night Start Time"
         self._attr_unique_id = f"{instance.name}_nighttime_start_time"
         self._attr_icon = "mdi:clock-in"
         self._attr_native_value = None
@@ -41,10 +43,12 @@ class NighttimeStart(TimeEntity):
 
 
 class NighttimeEnd(TimeEntity):
+    _attr_has_entity_name = True
+    _attr_translation_key = "night_end_time"
+
     def __init__(self, instance, config_entry):
         self._instance: Qingping = instance
         self._config_entry = config_entry
-        self._attr_name = f"{config_entry.data[CONF_NAME]} Night End Time"
         self._attr_unique_id = f"{instance.name}_nighttime_end_time"
         self._attr_icon = "mdi:clock-out"
         self._attr_native_value = None

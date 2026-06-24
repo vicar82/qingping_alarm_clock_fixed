@@ -30,10 +30,12 @@ class TemperatureUnit(Enum):
 
 
 class LanguageSelect(SelectEntity):
+    _attr_has_entity_name = True
+    _attr_translation_key = "language"
+
     def __init__(self, instance, config_entry):
         self._instance: Qingping = instance
         self._config_entry = config_entry
-        self._attr_name = f"{config_entry.data[CONF_NAME]} Language"
         self._attr_unique_id = f"{instance.name}_language"
         self._attr_icon = "mdi:language"
         self._attr_options = [Language.ZH.value, Language.EN.value]
@@ -48,19 +50,17 @@ class LanguageSelect(SelectEntity):
         language = Language(option)
         await self._instance.set_language(language)
 
-    async def async_set_value(self, value: str) -> None:
-        language = Language(value)
-        await self._instance.set_language(language)
-
     async def config_updated(self, config: Configuration):
         self._attr_current_option = config.language.value
 
 
 class TimeFormatSelect(SelectEntity):
+    _attr_has_entity_name = True
+    _attr_translation_key = "time_format"
+
     def __init__(self, instance, config_entry):
         self._instance: Qingping = instance
         self._config_entry = config_entry
-        self._attr_name = f"{config_entry.data[CONF_NAME]} Time Format"
         self._attr_unique_id = f"{instance.name}_time_format"
         self._attr_icon = "mdi:clock"
         self._attr_options = [TimeFormat._24H.value, TimeFormat._12H.value]
@@ -82,10 +82,12 @@ class TimeFormatSelect(SelectEntity):
 
 
 class TemperatureUnitSelect(SelectEntity):
+    _attr_has_entity_name = True
+    _attr_translation_key = "temperature_unit"
+
     def __init__(self, instance, config_entry):
         self._instance: Qingping = instance
         self._config_entry = config_entry
-        self._attr_name = f"{config_entry.data[CONF_NAME]} Temperature Unit"
         self._attr_unique_id = f"{instance.name}_temperature_unit"
         self._attr_icon = "mdi:thermometer"
         self._attr_options = [TemperatureUnit.C.value, TemperatureUnit.F.value]

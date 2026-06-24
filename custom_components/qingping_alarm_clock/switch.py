@@ -20,10 +20,12 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
 
 
 class QingpingAlarmsSwitch(SwitchEntity):
+    _attr_has_entity_name = True
+    _attr_translation_key = "alarms_enabled"
+
     def __init__(self, instance, config_entry):
         self._instance: Qingping = instance
         self._config_entry = config_entry
-        self._attr_name = f"{config_entry.data[CONF_NAME]} Alarms Enabled"
         self._attr_unique_id = f"{instance.name}_alarms_enabled"
         self._attr_is_on = None
         self._attr_icon = "mdi:alarm-check"
@@ -59,10 +61,12 @@ class QingpingAlarmsSwitch(SwitchEntity):
 
 
 class QingpingNightModeSwitch(SwitchEntity):
+    _attr_has_entity_name = True
+    _attr_translation_key = "night_mode_enabled"
+
     def __init__(self, instance, config_entry):
         self._instance: Qingping = instance
         self._config_entry = config_entry
-        self._attr_name = f"{config_entry.data[CONF_NAME]} Night Mode Enabled"
         self._attr_unique_id = f"{instance.name}_night_mode_enabled"
         self._attr_is_on = None
         self._attr_icon = "mdi:sun-clock"

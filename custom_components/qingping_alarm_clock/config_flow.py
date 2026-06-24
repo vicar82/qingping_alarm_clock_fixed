@@ -9,7 +9,6 @@ import voluptuous as vol
 
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 from homeassistant.const import CONF_MAC, CONF_NAME
-from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.device_registry import format_mac
 from homeassistant.components.bluetooth import (
     async_discovered_service_info
@@ -44,10 +43,16 @@ class CleargrassConfigFlow(ConfigFlow, domain=DOMAIN):
         return False
 
     async def _validate_device(self, qingping):
-        assert await qingping.connect()
-        await qingping.disconnect()
-
-        return None
+        try:
+            connected = await qingping.connect()
+            if not connected:
+                return "cannot_connect"
+            return None
+        except Exception as exc:
+            _LOGGER.exception("Failed to validate device: %s", exc)
+            return "cannot_connect"
+        finally:
+            await qingping.disconnect()
 
     async def async_step_user(
         self,
@@ -86,7 +91,7 @@ class CleargrassConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def async_step_manual_mac(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Handle manual mac step."""
         if user_input is not None:
             self.mac = user_input[CONF_MAC]
@@ -109,16 +114,17 @@ class CleargrassConfigFlow(ConfigFlow, domain=DOMAIN):
         """Handle validate step."""
         error = None
         qingping = Qingping(self.hass, self.mac, self.name)
-        await self._validate_device(qingping)
         try:
             error = await self._validate_device(qingping)
-        except Exception as e:
-            error = str(e)
-        finally:
-            await qingping.disconnect()
+        except Exception as exc:
+            _LOGGER.exception("Unexpected error during validation: %s", exc)
+            error = "unknown"
 
         if error:
-            return await self.async_step_user(errors={"base": error})
+            return self.async_show_form(
+                step_id="user",
+                errors={"base": error}
+            )
 
         return await self.async_step_name()
 

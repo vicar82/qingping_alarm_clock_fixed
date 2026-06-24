@@ -1,8 +1,18 @@
 import asyncio
 import logging
+import math
 import time
-from bleak import BleakClient
 from datetime import time as dtime
+
+from bleak import BleakClient
+from bleak_retry_connector import (
+    establish_connection,
+    BleakClientWithServiceCache,
+    BleakNotFoundError,
+    BleakOutOfConnectionSlotsError,
+    BleakAbortedError,
+    BleakConnectionError,
+)
 
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ServiceValidationError
@@ -39,21 +49,23 @@ AUTH_STEP_2 = bytes.fromhex("1102ea600e964287ea7d17894900da6174bd")
 
 
 class Qingping:
-    client = None
-    configuration = None
-    alarms: list[Alarm] = []
-    eventbus = EventBus()
-
-    _connect_lock = asyncio.Lock()
-    _configuration_event = asyncio.Event()
-    _alarms_event = asyncio.Event()
-    _disconnect_task = None
-
     def __init__(self, hass: HomeAssistant, mac: str, name: str):
         """Initialize the Qingping CGD1 Alarm Clock."""
         self.hass = hass
         self.mac = mac
         self.name = name
+
+        self.client = None
+        self.configuration = None
+        self.alarms: list[Alarm] = []
+        self.eventbus = EventBus()
+
+        self._connect_lock = asyncio.Lock()
+        self._configuration_event = asyncio.Event()
+        self._alarms_event = asyncio.Event()
+        self._alarm_chunks_received = 0
+        self._expected_alarm_chunks = math.ceil(ALARM_SLOTS_COUNT / 3)
+        self._disconnect_task = None
 
     async def connect(self) -> bool:
         async with self._connect_lock:
@@ -62,79 +74,98 @@ class Qingping:
 
             device = async_ble_device_from_address(self.hass, self.mac, connectable=True)
             if device is None:
-                _LOGGER.error(f"No adapters can reach the device with address {self.mac}")
+                _LOGGER.error("No adapters can reach the device with address %s", self.mac)
                 return False
 
-            self.client = BleakClient(device, disconnected_callback=self._on_disconnect)
-
-            _LOGGER.debug(f"Connecting to {self.mac}...")
+            _LOGGER.debug("Connecting to %s...", self.mac)
             try:
-                await self.client.connect()
-            except Exception as e:
-                _LOGGER.debug(f"Failed to connect to {self.mac}: {e}")
+                self.client = await establish_connection(
+                    BleakClientWithServiceCache,
+                    device,
+                    self.name or self.mac,
+                    disconnected_callback=self._on_disconnect,
+                    max_attempts=3,
+                )
+            except (BleakNotFoundError, BleakOutOfConnectionSlotsError,
+                    BleakAbortedError, BleakConnectionError, asyncio.TimeoutError) as exc:
+                _LOGGER.debug("Failed to connect to %s: %s", self.mac, exc)
+                return False
+            except Exception as exc:
+                _LOGGER.exception("Unexpected error connecting to %s: %s", self.mac, exc)
                 return False
 
-            await asyncio.sleep(2.0)  # give some time for service discovery
+            _LOGGER.debug("Connected to %s, authenticating...", self.mac)
 
-            _LOGGER.debug(f"Connected to {self.mac}, authenticating...")
+            try:
+                # Step 1 auth
+                await self._write_gatt_char(MAIN_CHAR, AUTH_STEP_1)
 
-            # Step 1 auth
-            await self._write_gatt_char(MAIN_CHAR, AUTH_STEP_1)
+                # Step 2 auth
+                await self._write_gatt_char(MAIN_CHAR, AUTH_STEP_2)
 
-            # Step 2 auth
-            await self._write_gatt_char(MAIN_CHAR, AUTH_STEP_2)
+                self.eventbus.send(DEVICE_CONNECT, self)
 
-            self.eventbus.send(DEVICE_CONNECT, self)
+                # Read configuration
+                _LOGGER.debug("Reading configuration...")
+                await self.client.start_notify(CFG_READ_CHAR, self._notification_handler)
+                await self.get_configuration()
 
-            # Read configuration
-            _LOGGER.debug("Reading configuration...")
-            await self.client.start_notify(CFG_READ_CHAR, self._notification_handler)
-            await self.get_configuration()
-
-            # Read alarms
-            _LOGGER.debug("Reading alarms...")
-            await self.get_alarms()
+                # Read alarms
+                _LOGGER.debug("Reading alarms...")
+                await self.get_alarms()
+            except Exception as exc:
+                _LOGGER.exception("Failed to initialize %s after connection: %s", self.mac, exc)
+                await self.disconnect()
+                return False
 
             return True
 
     async def connect_if_needed(self) -> bool:
-        if not self.configuration or self.configuration.is_expired:
+        if not self.client or not self.client.is_connected or \
+                not self.configuration or self.configuration.is_expired:
             return await self.connect()
 
         return False
 
     async def disconnect(self) -> bool:
-        if self.client and self.client.is_connected:
-            _LOGGER.debug(f"Disconnecting from {self.mac}...")
-            await self.client.disconnect()
-            return True
+        if self._disconnect_task is not None:
+            self._disconnect_task.cancel()
+            self._disconnect_task = None
 
-        return False
+        if self.client and self.client.is_connected:
+            _LOGGER.debug("Disconnecting from %s...", self.mac)
+            try:
+                await self.client.disconnect()
+            except Exception as exc:
+                _LOGGER.debug("Failed to disconnect from %s: %s", self.mac, exc)
+
+        self.client = None
+        return True
 
     async def delayed_disconnect(self):
-        if not self.client.is_connected:
-            return
-
         try:
             await asyncio.sleep(DISCONNECT_DELAY)
             await self.disconnect()
-            if self._disconnect_task:
-                self._disconnect_task.cancel()
-                self._disconnect_task = None
-            _LOGGER.debug(f"Disconnected from {self.mac}")
-        except Exception as e:
-            _LOGGER.debug(f"Failed to disconnect. Error: {e}")
+            _LOGGER.debug("Disconnected from %s", self.mac)
+        except asyncio.CancelledError:
+            pass
+        except Exception as exc:
+            _LOGGER.debug("Failed to disconnect. Error: %s", exc)
 
     async def get_configuration(self):
-        if self.client and self.client.is_connected:
-            await self._write_config(b"\x01\x02")
-            await self._configuration_event.wait()
-        else:
+        if not self.client or not self.client.is_connected:
             raise NotConnectedError("Not connected")
+
+        self._configuration_event.clear()
+        await self._write_config(b"\x01\x02")
+        try:
+            await asyncio.wait_for(self._configuration_event.wait(), CONNECTION_TIMEOUT)
+        except asyncio.TimeoutError as exc:
+            raise NotConnectedError("Timeout waiting for configuration") from exc
 
     async def set_configuration(self, configuration: Configuration):
         await self._write_config(configuration.to_bytes())
-        await self._write_config(b"\x01\x02")
+        await self.get_configuration()
 
     async def set_time(self, timestamp: int, timezone_offset: int | None = None):
         start_time = time.time()
@@ -155,11 +186,17 @@ class Qingping:
             await self.set_configuration(self.configuration)
 
     async def get_alarms(self):
-        if self.client and self.client.is_connected:
-            await self._write_config(b"\x01\x06")
-            await self._alarms_event.wait()
-        else:
+        if not self.client or not self.client.is_connected:
             raise NotConnectedError("Not connected")
+
+        self.alarms = []
+        self._alarm_chunks_received = 0
+        self._alarms_event.clear()
+        await self._write_config(b"\x01\x06")
+        try:
+            await asyncio.wait_for(self._alarms_event.wait(), CONNECTION_TIMEOUT)
+        except asyncio.TimeoutError as exc:
+            raise NotConnectedError("Timeout waiting for alarms") from exc
 
     async def set_alarm(
         self,
@@ -172,7 +209,7 @@ class Qingping:
         await self._ensure_alarms()
         await self._ensure_connected()
 
-        if slot >= 0 and slot < ALARM_SLOTS_COUNT:
+        if 0 <= slot < ALARM_SLOTS_COUNT:
             alarm: Alarm = self.alarms[slot]
             if is_enabled is not None:
                 alarm.is_enabled = is_enabled
@@ -195,7 +232,7 @@ class Qingping:
         await self._ensure_alarms()
         await self._ensure_connected()
 
-        if slot >= 0 and slot < ALARM_SLOTS_COUNT:
+        if 0 <= slot < ALARM_SLOTS_COUNT:
             alarm: Alarm = self.alarms[slot]
             alarm.deactivate()
 
@@ -205,6 +242,8 @@ class Qingping:
                 return True
             else:
                 raise NotConnectedError("Not connected")
+
+        return False
 
     @updates_configuration
     async def enable_alarms(self, is_enabled: bool):
@@ -265,21 +304,13 @@ class Qingping:
         await self._write_config(self.configuration.to_bytes())
 
     async def _ensure_connected(self):
-        async def wait_for_connected():
-            while not self.client or not self.client.is_connected:
-                success = await self.connect()
-                if success:
-                    _LOGGER.info("Successfully connected to the Bluetooth device.")
-                    return
-                else:
-                    _LOGGER.error("Failed to connect. Retrying in %s seconds...", RETRY_INTERVAL)
-                    await asyncio.sleep(RETRY_INTERVAL)
+        if self.client and self.client.is_connected:
+            return
 
-        try:
-            await asyncio.wait_for(wait_for_connected(), CONNECTION_TIMEOUT)
-        except asyncio.TimeoutError:
-            _LOGGER.error("Connection timeout.")
-            raise NotConnectedError("Connection timeout")
+        if await self.connect():
+            return
+
+        raise NotConnectedError("Connection timeout")
 
     async def _ensure_configuration(self):
         if not self.configuration or self.configuration.is_expired:
@@ -292,22 +323,23 @@ class Qingping:
             await self.get_alarms()
 
     async def _write_config(self, data: bytes):
-        if self.client and self.client.is_connected:
-            await self._write_gatt_char(CFG_WRITE_CHAR, data)
-
-            loop = asyncio.get_running_loop()
-            if self._disconnect_task is not None:
-                self._disconnect_task.cancel()
-            self._disconnect_task = loop.create_task(self.delayed_disconnect())
-        else:
+        if not self.client or not self.client.is_connected:
             raise NotConnectedError("Not connected")
+
+        await self._write_gatt_char(CFG_WRITE_CHAR, data)
+
+        if self._disconnect_task is not None:
+            self._disconnect_task.cancel()
+        self._disconnect_task = asyncio.get_running_loop().create_task(
+            self.delayed_disconnect()
+        )
 
     async def _write_gatt_char(self, uuid: str, data: bytes):
-        if self.client and self.client.is_connected:
-            _LOGGER.debug(f">> {uuid}: {data.hex()}")
-            await self.client.write_gatt_char(uuid, data)
-        else:
+        if not self.client or not self.client.is_connected:
             raise NotConnectedError("Not connected")
+
+        _LOGGER.debug(">> %s: %s", uuid, data.hex())
+        await self.client.write_gatt_char(uuid, data)
 
     def _get_timestamp_bytes(self, timestamp: int):
         timestamp_bytes = [0] * 6
@@ -322,25 +354,28 @@ class Qingping:
 
     async def _notification_handler(self, sender, data):
         if sender.uuid.lower() == CFG_READ_CHAR.lower():
-            _LOGGER.debug(f"<< {sender.uuid}: {data.hex()}")
+            _LOGGER.debug("<< %s: %s", sender.uuid, data.hex())
             if data.startswith(b"\x13\x02"):
-                _LOGGER.debug(f"Got configuration bytes: {data.hex()}")
+                _LOGGER.debug("Got configuration bytes: %s", data.hex())
                 self.configuration = Configuration(data)
 
                 self._configuration_event.set()
                 self.eventbus.send(DEVICE_CONFIG_UPDATE, self.configuration)
             elif data.startswith(b"\x11\x06") and len(data) == 18:
-                _LOGGER.debug(f"Got alarms bytes: {data.hex()}")
+                _LOGGER.debug("Got alarms bytes: %s", data.hex())
                 slot_offset = data[2]
                 if slot_offset == 0:
                     self.alarms = []
+                    self._alarm_chunks_received = 0
 
+                self._alarm_chunks_received += 1
                 self.alarms.append(Alarm(slot_offset, data[3:8]))
                 self.alarms.append(Alarm(slot_offset + 1, data[8:13]))
                 self.alarms.append(Alarm(slot_offset + 2, data[13:18]))
 
-                self._alarms_event.set()
-                self.eventbus.send(ALARMS_UPDATE, self.alarms)
+                if slot_offset + 3 >= ALARM_SLOTS_COUNT:
+                    self._alarms_event.set()
+                    self.eventbus.send(ALARMS_UPDATE, self.alarms)
 
     def _on_disconnect(self, client: BleakClient):
         if self._disconnect_task is not None:

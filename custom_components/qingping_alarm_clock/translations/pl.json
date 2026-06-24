@@ -1,0 +1,175 @@
+{
+  "title": "Qingping Cleargrass CGD1 Alarm Clock",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Wybierz urządzenie",
+        "description": "Wybierz budzik Qingping CGD1 do skonfigurowania",
+        "data": {
+          "mac": "Urządzenie"
+        }
+      },
+      "manual_mac": {
+        "title": "Wprowadź adres MAC",
+        "data": {
+          "mac": "Adres MAC"
+        }
+      },
+      "name": {
+        "title": "Nazwij urządzenie",
+        "data": {
+          "name": "Nazwa"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Nie udało się połączyć z budzikiem. Upewnij się, że jest w zasięgu i nie jest połączony z innym urządzeniem.",
+      "unknown": "Nieoczekiwany błąd"
+    },
+    "abort": {
+      "already_configured": "Urządzenie jest już skonfigurowane"
+    }
+  },
+  "entity": {
+    "number": {
+      "daytime_brightness": {
+        "name": "Jasność dzień"
+      },
+      "nighttime_brightness": {
+        "name": "Jasność noc"
+      },
+      "screen_light_time": {
+        "name": "Czas podśw."
+      },
+      "volume": {
+        "name": "Głośność"
+      }
+    },
+    "select": {
+      "language": {
+        "name": "Język"
+      },
+      "temperature_unit": {
+        "name": "Jednostka temperatury"
+      },
+      "time_format": {
+        "name": "Format czasu"
+      }
+    },
+    "switch": {
+      "alarms_enabled": {
+        "name": "Alarmy"
+      },
+      "night_mode_enabled": {
+        "name": "Tryb nocny"
+      }
+    },
+    "time": {
+      "night_end_time": {
+        "name": "Tryb nocny do"
+      },
+      "night_start_time": {
+        "name": "Tryb nocny od"
+      }
+    },
+    "binary_sensor": {
+      "connected": {
+        "name": "Połączono"
+      }
+    }
+  },
+  "services": {
+    "set_alarm": {
+      "name": "Ustaw alarm",
+      "description": "Skonfiguruj alarm na budziku Qingping.",
+      "fields": {
+        "device_id": {
+          "name": "Urządzenie",
+          "description": "Budzik Qingping do skonfigurowania."
+        },
+        "slot": {
+          "name": "Slot",
+          "description": "Numer slotu alarmu (0-18)."
+        },
+        "time": {
+          "name": "Godzina",
+          "description": "Godzina alarmu."
+        },
+        "days": {
+          "name": "Dni",
+          "description": "Lista dni tygodnia oddzielonych przecinkami (mon,tue,wed,thu,fri,sat,sun)."
+        },
+        "enabled": {
+          "name": "Włączony",
+          "description": "Włącz lub wyłącz alarm."
+        },
+        "snooze": {
+          "name": "Drzemka",
+          "description": "Włącz lub wyłącz drzemkę dla alarmu."
+        }
+      }
+    },
+    "delete_alarm": {
+      "name": "Usuń alarm",
+      "description": "Usuń alarm z budzika Qingping.",
+      "fields": {
+        "device_id": {
+          "name": "Urządzenie",
+          "description": "Budzik Qingping do skonfigurowania."
+        },
+        "slot": {
+          "name": "Slot",
+          "description": "Numer slotu alarmu (0-18)."
+        }
+      }
+    },
+    "get_alarms": {
+      "name": "Pobierz alarmy",
+      "description": "Pobierz listę skonfigurowanych alarmów.",
+      "fields": {
+        "device_id": {
+          "name": "Urządzenie",
+          "description": "Budzik Qingping do zapytania."
+        },
+        "only_enabled": {
+          "name": "Tylko włączone",
+          "description": "Zwróć tylko włączone alarmy."
+        }
+      }
+    },
+    "set_time": {
+      "name": "Ustaw czas",
+      "description": "Ręcznie ustaw czas i strefę czasową zegara.",
+      "fields": {
+        "device_id": {
+          "name": "Urządzenie",
+          "description": "Budzik Qingping do skonfigurowania."
+        },
+        "time": {
+          "name": "Czas",
+          "description": "Data i czas do ustawienia."
+        }
+      }
+    },
+    "sync_time": {
+      "name": "Synchronizuj czas",
+      "description": "Zsynchronizuj zegar z aktualnym czasem Home Assistant.",
+      "fields": {
+        "device_id": {
+          "name": "Urządzenie",
+          "description": "Budzik Qingping do skonfigurowania."
+        }
+      }
+    },
+    "refresh": {
+      "name": "Odśwież",
+      "description": "Ręcznie połącz się z budzikiem i odśwież wszystkie dane.",
+      "fields": {
+        "device_id": {
+          "name": "Urządzenie",
+          "description": "Budzik Qingping do odświeżenia."
+        }
+      }
+    }
+  }
+}

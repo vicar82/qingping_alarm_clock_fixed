@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from homeassistant.const import CONF_NAME, PERCENTAGE
+from homeassistant.const import PERCENTAGE
 from homeassistant.const import UnitOfTime
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.components.number import NumberDeviceClass, NumberEntity, NumberMode
@@ -21,10 +21,12 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
 
 
 class QingpingSoundVolume(NumberEntity):
+    _attr_has_entity_name = True
+    _attr_translation_key = "volume"
+
     def __init__(self, instance, config_entry):
         self._instance: Qingping = instance
         self._config_entry = config_entry
-        self._attr_name = f"{config_entry.data[CONF_NAME]} Volume"
         self._attr_unique_id = f"{instance.name}_volume"
         self._attr_device_class = NumberDeviceClass.VOLUME
         self._attr_mode = NumberMode.SLIDER
@@ -37,7 +39,7 @@ class QingpingSoundVolume(NumberEntity):
 
     @property
     def device_info(self) -> DeviceInfo:
-        return async_device_device_info_fn(self._instance, self._config_entry.data[CONF_NAME])
+        return async_device_device_info_fn(self._instance, self._config_entry.data["name"])
 
     async def config_updated(self, config: Configuration):
         self._attr_native_value = config.sound_volume
@@ -48,10 +50,12 @@ class QingpingSoundVolume(NumberEntity):
 
 
 class ScreenlightTime(NumberEntity):
+    _attr_has_entity_name = True
+    _attr_translation_key = "screen_light_time"
+
     def __init__(self, instance, config_entry):
         self._instance: Qingping = instance
         self._config_entry = config_entry
-        self._attr_name = f"{config_entry.data[CONF_NAME]} Screen Light Time"
         self._attr_unique_id = f"{instance.name}_screen_light_time"
         self._attr_mode = NumberMode.SLIDER
         self._attr_icon = "mdi:sun-clock"
@@ -64,7 +68,7 @@ class ScreenlightTime(NumberEntity):
 
     @property
     def device_info(self) -> DeviceInfo:
-        return async_device_device_info_fn(self._instance, self._config_entry.data[CONF_NAME])
+        return async_device_device_info_fn(self._instance, self._config_entry.data["name"])
 
     async def config_updated(self, config: Configuration):
         self._attr_native_value = config.screen_light_time
@@ -75,10 +79,12 @@ class ScreenlightTime(NumberEntity):
 
 
 class DaytimeBrightness(NumberEntity):
+    _attr_has_entity_name = True
+    _attr_translation_key = "daytime_brightness"
+
     def __init__(self, instance, config_entry):
         self._instance: Qingping = instance
         self._config_entry = config_entry
-        self._attr_name = f"{config_entry.data[CONF_NAME]} Daytime Brightness"
         self._attr_unique_id = f"{instance.name}_daytime_brightness"
         self._attr_mode = NumberMode.SLIDER
         self._attr_icon = "mdi:brightness-7"
@@ -91,7 +97,7 @@ class DaytimeBrightness(NumberEntity):
 
     @property
     def device_info(self) -> DeviceInfo:
-        return async_device_device_info_fn(self._instance, self._config_entry.data[CONF_NAME])
+        return async_device_device_info_fn(self._instance, self._config_entry.data["name"])
 
     async def config_updated(self, config: Configuration):
         self._attr_native_value = config.daytime_brightness
@@ -102,10 +108,12 @@ class DaytimeBrightness(NumberEntity):
 
 
 class NighttimeBrightness(NumberEntity):
+    _attr_has_entity_name = True
+    _attr_translation_key = "nighttime_brightness"
+
     def __init__(self, instance, config_entry):
         self._instance: Qingping = instance
         self._config_entry = config_entry
-        self._attr_name = f"{config_entry.data[CONF_NAME]} Night-time Brightness"
         self._attr_unique_id = f"{instance.name}_nighttime_brightness"
         self._attr_mode = NumberMode.SLIDER
         self._attr_icon = "mdi:brightness-7"
@@ -118,7 +126,7 @@ class NighttimeBrightness(NumberEntity):
 
     @property
     def device_info(self) -> DeviceInfo:
-        return async_device_device_info_fn(self._instance, self._config_entry.data[CONF_NAME])
+        return async_device_device_info_fn(self._instance, self._config_entry.data["name"])
 
     async def config_updated(self, config: Configuration):
         self._attr_native_value = config.nighttime_brightness
