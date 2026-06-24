@@ -76,6 +76,11 @@
       "connected": {
         "name": "Połączono"
       }
+    },
+    "button": {
+      "sync_time": {
+        "name": "Synchronizuj czas"
+      }
     }
   },
   "services": {

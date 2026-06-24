@@ -76,6 +76,11 @@
       "connected": {
         "name": "Connected"
       }
+    },
+    "button": {
+      "sync_time": {
+        "name": "Sync Time"
+      }
     }
   },
   "services": {
