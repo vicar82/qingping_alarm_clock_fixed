@@ -237,7 +237,10 @@ class Qingping:
                     alarm.snooze = snooze
 
             await self._write_config(alarm.to_bytes())
-            await self.get_alarms()
+            try:
+                await self.get_alarms()
+            except NotConnectedError:
+                _LOGGER.warning("Alarm written, but could not refresh alarm list from %s", self.mac)
             return True
 
         return False
@@ -252,7 +255,10 @@ class Qingping:
 
             if self.client and self.client.is_connected:
                 await self._write_config(alarm.to_bytes())
-                await self.get_alarms()
+                try:
+                    await self.get_alarms()
+                except NotConnectedError:
+                    _LOGGER.warning("Alarm deleted, but could not refresh alarm list from %s", self.mac)
                 return True
             else:
                 raise NotConnectedError("Not connected")
@@ -347,6 +353,7 @@ class Qingping:
                 Alarm(slot, bytes.fromhex("ffffffffff"))
                 for slot in range(ALARM_SLOTS_COUNT)
             ]
+            self.eventbus.send(ALARMS_UPDATE, self.alarms)
 
     async def _write_config(self, data: bytes):
         if not self.client or not self.client.is_connected:
