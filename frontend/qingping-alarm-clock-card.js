@@ -75,8 +75,8 @@ class QingpingAlarmClockCard extends HTMLElement {
         'get_alarms',
         { device_id: this.config.device_id },
         undefined,
-        false,
-        true
+        true,
+        false
       );
       this._alarms = (resp && resp.alarms) || [];
       this._renderAlarms();
