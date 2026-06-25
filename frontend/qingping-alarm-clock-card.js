@@ -68,17 +68,17 @@ class QingpingAlarmClockCard extends HTMLElement {
   }
 
   async _refreshAlarms() {
-    if (!this._hass) return;
+    if (!this._hass || !this._hass.connection) return;
     try {
-      const resp = await this._hass.callService(
-        'qingping_alarm_clock',
-        'get_alarms',
-        { device_id: this.config.device_id },
-        undefined,
-        true,
-        false
-      );
-      this._alarms = (resp && resp.alarms) || [];
+      const resp = await this._hass.connection.sendMessagePromise({
+        type: 'call_service',
+        domain: 'qingping_alarm_clock',
+        service: 'get_alarms',
+        service_data: { device_id: this.config.device_id },
+        return_response: true,
+      });
+      const result = resp && resp.response;
+      this._alarms = (result && result.alarms) || [];
       this._renderAlarms();
       this._renderAddForm();
     } catch (err) {
