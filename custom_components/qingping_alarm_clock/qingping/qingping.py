@@ -3,7 +3,7 @@ import logging
 import time
 from datetime import time as dtime
 
-from bleak import BleakClient
+from bleak import BleakClient, BleakError
 from bleak_retry_connector import (
     establish_connection,
     BleakClientWithServiceCache,
@@ -327,8 +327,11 @@ class Qingping:
         if self.client and self.client.is_connected:
             return
 
-        if await self.connect():
-            return
+        for attempt in range(3):
+            if await self.connect():
+                return
+            _LOGGER.debug("Connection attempt %d failed, retrying...", attempt + 1)
+            await asyncio.sleep(RETRY_INTERVAL)
 
         raise NotConnectedError("Connection timeout")
 
@@ -359,7 +362,13 @@ class Qingping:
         if not self.client or not self.client.is_connected:
             raise NotConnectedError("Not connected")
 
-        await self._write_gatt_char(CFG_WRITE_CHAR, data)
+        try:
+            await self._write_gatt_char(CFG_WRITE_CHAR, data)
+        except BleakError as exc:
+            _LOGGER.warning("Write failed (%s), reconnecting and retrying once...", exc)
+            await self.disconnect()
+            await self._ensure_connected()
+            await self._write_gatt_char(CFG_WRITE_CHAR, data)
 
         if self._disconnect_task is not None:
             self._disconnect_task.cancel()
