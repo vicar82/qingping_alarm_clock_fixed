@@ -96,11 +96,11 @@ class Qingping:
 
             try:
                 # Step 1 auth
-                await self._write_gatt_char(MAIN_CHAR, AUTH_STEP_1)
+                await self._write_main_char(AUTH_STEP_1)
                 await asyncio.sleep(0.2)
 
                 # Step 2 auth
-                await self._write_gatt_char(MAIN_CHAR, AUTH_STEP_2)
+                await self._write_main_char(AUTH_STEP_2)
                 await asyncio.sleep(0.5)
 
                 self.eventbus.send(DEVICE_CONNECT, self)
@@ -185,7 +185,7 @@ class Qingping:
         timestamp = int(timestamp + (time.time() - start_time))
 
         timestamp_bytes = self._get_timestamp_bytes(timestamp)
-        await self._write_gatt_char(MAIN_CHAR, timestamp_bytes)
+        await self._write_main_char(timestamp_bytes)
 
         if timezone_offset is not None and \
             self.configuration.timezone_offset != timezone_offset:
@@ -359,16 +359,22 @@ class Qingping:
             self.eventbus.send(ALARMS_UPDATE, self.alarms)
 
     async def _write_config(self, data: bytes):
+        await self._write_with_retry(CFG_WRITE_CHAR, data)
+
+    async def _write_main_char(self, data: bytes):
+        await self._write_with_retry(MAIN_CHAR, data)
+
+    async def _write_with_retry(self, uuid: str, data: bytes):
         if not self.client or not self.client.is_connected:
             raise NotConnectedError("Not connected")
 
         try:
-            await self._write_gatt_char(CFG_WRITE_CHAR, data)
-        except BleakError as exc:
-            _LOGGER.warning("Write failed (%s), reconnecting and retrying once...", exc)
+            await self._write_gatt_char(uuid, data)
+        except (BleakError, asyncio.TimeoutError) as exc:
+            _LOGGER.warning("Write to %s failed (%s), reconnecting and retrying once...", uuid, exc)
             await self.disconnect()
             await self._ensure_connected()
-            await self._write_gatt_char(CFG_WRITE_CHAR, data)
+            await self._write_gatt_char(uuid, data)
 
         if self._disconnect_task is not None:
             self._disconnect_task.cancel()
@@ -381,7 +387,14 @@ class Qingping:
             raise NotConnectedError("Not connected")
 
         _LOGGER.debug(">> %s: %s", uuid, data.hex())
-        await self.client.write_gatt_char(uuid, data)
+        try:
+            await asyncio.wait_for(
+                self.client.write_gatt_char(uuid, data),
+                timeout=10.0
+            )
+        except asyncio.TimeoutError as exc:
+            _LOGGER.warning("Timeout writing to %s", uuid)
+            raise
 
     def _get_timestamp_bytes(self, timestamp: int):
         timestamp_bytes = [0] * 6
