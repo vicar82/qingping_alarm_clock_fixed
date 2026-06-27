@@ -112,8 +112,9 @@ class QingpingAlarmClockCard extends HTMLElement {
   }
 
   _parseTime(timeStr) {
-    const [h, m] = timeStr.split(':').map(Number);
-    return { hour: h, minute: m };
+    if (!timeStr) return null;
+    const [h, m] = timeStr.split(':');
+    return `${h.padStart(2, '0')}:${m.padStart(2, '0')}:00`;
   }
 
   _parseDays(daysString) {
